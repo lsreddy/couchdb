@@ -453,16 +453,21 @@ do_unpack_seqs(Opaque, DbName) ->
         true ->
             Unpacked;
         false ->
+            PotentialWorkers = lists:map(fun({Node, [A, B], Seq}) ->
+                case mem3:get_shard(DbName, Node, [A, B]) of
+                    {ok, Shard} ->
+                        {Shard, Seq};
+                    {error, not_found} ->
+                        {#shard{node = Node, range = [A, B]}, Seq}
+                end
+            end, Deduped),
             Shards = mem3:shards(DbName),
-            {Unpacked1, Dead, Reps} = find_replacements(Unpacked, Shards),
-            {Splits0, Reps1} = find_split_shard_replacements(Dead, Reps),
-            Splits1 = lists:map(fun({#shard{} = S, Seq}) ->
-                {S, Seq}
-            end, Splits0),
+            {Unpacked1, Dead, Reps} = find_replacements(PotentialWorkers, Shards),
+            {Splits, Reps1} = find_split_shard_replacements(Dead, Reps),
             RepSeqs = lists:map(fun(#shard{} = S) ->
                 {S, get_old_seq(S, Deduped)}
             end, Reps1),
-            Unpacked1 ++ Splits1 ++ RepSeqs
+            Unpacked1 ++ Splits ++ RepSeqs
     end.
 
 
