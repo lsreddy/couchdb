@@ -587,12 +587,18 @@ find_split_shard_replacements(DeadWorkers, Shards) ->
         {SplitWorkers, Available} = Acc,
         ShardsOnSameNode = [S || #shard{node = N} = S <- Available, N =:= WN],
         SplitShards = mem3_util:non_overlapping_shards(ShardsOnSameNode, B, E),
-        NewWorkers = [{S, Seq} || S <- SplitShards],
+        NewWorkers = [{S, make_split_seq(Seq)} || S <- SplitShards],
         NewAvailable = [S || S <- Available, not lists:member(S, SplitShards)],
         {NewWorkers ++ SplitWorkers, NewAvailable}
     end, Acc0, DeadWorkers),
     {Workers, Available} = AccF,
     {fabric_dict:from_list(Workers), Available}.
+
+
+make_split_seq({Num, UuidPrefix, Node}) when is_binary(UuidPrefix) ->
+    {Num, split, Node};
+make_split_seq(Seq) ->
+    Seq.
 
 
 validate_start_seq(_DbName, "now") ->
